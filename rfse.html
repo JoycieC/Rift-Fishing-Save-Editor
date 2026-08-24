@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rift Fishing Save Editor</title>
+    
+    <style>
+        /* Base Reset & Offline Typography (System Fonts instead of Google Fonts) */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background: linear-gradient(to bottom, #0f172a, #172554, #083344);
+            color: #f3f4f6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+        ::selection {
+            background-color: #06b6d4;
+            color: #ffffff;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+        /* Layout Classes */
+        .container {
+            max-width: 56rem; /* 896px */
+            margin: 0 auto;
+            width: 100%;
+            padding: 0 1rem;
+        }
+        .flex { display: flex; }
+        .flex-col { display: flex; flex-direction: column; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .justify-center { justify-content: center; }
+        .grid { display: grid; }
+        .gap-4 { gap: 1rem; }
+        
+        /* Glassmorphism Panel */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(34, 211, 238, 0.15);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            border-radius: 1rem;
+        }
+
+        /* Header Styles */
+        header {
+            padding: 1.5rem 0;
+            border-bottom: 1px solid rgba(22, 78, 99, 0.5);
+            background: rgba(15, 23, 42, 0.3);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 4px 30px rgba(6, 182, 212, 0.1);
+        }
+        .title-group h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #67e8f9, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 0.025em;
+            margin-left: 0.75rem;
+        }
+        .badge {
+            font-size: 0.875rem;
+            color: #cffafe;
+            font-weight: 500;
+            background: rgba(22, 78, 99, 0.4);
+            padding: 0.375rem 1rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.2);
+        }
+
+        /* Dropzone Styles */
+        .dropzone {
+            padding: 2.5rem;
+            border: 2px dashed rgba(22, 78, 99, 0.5);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            margin-top: 1rem;
+            text-align: center;
+        }
+        .dropzone:hover, .drag-active {
+            border-color: #22d3ee !important;
+            background-color: rgba(34, 211, 238, 0.1) !important;
+            box-shadow: 0 0 25px rgba(6, 182, 212, 0.15);
+        }
+        .dropzone-icon {
+            background: #083344;
+            padding: 1rem;
+            border-radius: 9999px;
+            margin-bottom: 1rem;
+            border: 1px solid #164e63;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+            display: inline-flex;
+            transition: transform 0.3s ease;
+        }
+        .dropzone:hover .dropzone-icon { transform: scale(1.1); }
+        .dropzone h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
+        .dropzone p { color: #9ca3af; font-size: 0.875rem; margin-bottom: 1rem; }
+        .warning-box {
+            font-size: 0.75rem;
+            color: rgba(234, 179, 8, 0.8);
+            background: rgba(234, 179, 8, 0.1);
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.25rem;
+            border: 1px solid rgba(234, 179, 8, 0.2);
+            display: inline-flex;
+            align-items: center;
+        }
+
+        /* Editor Workspace Styles */
+        .workspace { margin-top: 2rem; display: none; }
+        .workspace.active { display: flex; flex-direction: column; gap: 1.5rem; }
+        .workspace-header { margin-bottom: 1rem; }
+        .loaded-filename { color: #60a5fa; font-family: monospace; font-size: 1.125rem; margin-right: 0.5rem; }
+        .success-badge {
+            font-size: 0.875rem; color: #4ade80; background: rgba(74, 222, 128, 0.1);
+            padding: 0.125rem 0.5rem; border-radius: 0.25rem; border: 1px solid rgba(74, 222, 128, 0.2);
+        }
+
+        /* Form Inputs */
+        .stats-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+        .stat-card { padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; }
+        .stat-label { font-size: 0.875rem; color: #9ca3af; font-weight: 500; margin-bottom: 0.5rem; display: block; }
+        .stat-input {
+            width: 100%; background: #0f172a; border: 1px solid rgba(14, 116, 144, 0.5);
+            border-radius: 0.5rem; padding: 0.5rem 0.75rem; color: white;
+            font-family: monospace; font-size: 1rem; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+            transition: all 0.2s; outline: none;
+        }
+        .stat-input:focus { border-color: #22d3ee; box-shadow: 0 0 0 1px #22d3ee, inset 0 2px 4px rgba(0,0,0,0.5); }
+        .stat-meta { font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem; font-family: monospace; opacity: 0.5; word-break: break-all; }
+
+        /* Button */
+        .btn {
+            background: #0891b2; color: white; font-weight: 500; font-size: 0.875rem;
+            padding: 0.625rem 1.25rem; border-radius: 0.5rem; border: 1px solid rgba(34, 211, 238, 0.5);
+            cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4); transition: all 0.2s;
+        }
+        .btn:hover { background: #06b6d4; box-shadow: 0 0 25px rgba(6, 182, 212, 0.6); transform: translateY(-2px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        /* Message Box */
+        .message-box {
+            width: 100%; margin-top: 1.5rem; border-radius: 0.5rem; padding: 1rem; font-size: 0.875rem; display: none;
+        }
+        .message-success { background: rgba(20, 83, 45, 0.3); border: 1px solid rgba(34, 197, 94, 0.5); color: #bbf7d0; display: block; }
+        .message-error { background: rgba(127, 29, 29, 0.3); border: 1px solid rgba(239, 68, 68, 0.5); color: #fecaca; display: block; }
+
+        @keyframes float {
+            0% { transform: translateY(100vh) scale(0.2); opacity: 0; }
+            20% { opacity: 0.5; }
+            100% { transform: translateY(-10vh) scale(1.5); opacity: 0; }
+        }
+        .bubble {
+            position: fixed; bottom: -50px;
+            background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.05));
+            border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 50%;
+            z-index: -1; animation: float infinite ease-in; pointer-events: none;
+        }
+        @keyframes wave {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        .wave-container {
+            position: fixed; bottom: -10px; left: 0; width: 200vw; height: 180px;
+            z-index: -1; pointer-events: none;
+        }
+        .wave-container svg { width: 100%; height: 100%; fill: currentColor; }
+        .wave-1 { animation: wave 20s linear infinite; opacity: 0.2; color: #06b6d4; }
+        .wave-2 { animation: wave 35s linear infinite reverse; opacity: 0.15; bottom: 20px; color: #2563eb; }
+        
+        .empty-state { text-align: center; padding: 2rem; background: rgba(30, 41, 59, 0.8); border-radius: 0.5rem; grid-column: 1 / -1;}
+    </style>
+</head>
+<body>
+
+    <div class="bubble" style="left: 10%; width: 20px; height: 20px; animation-duration: 8s; animation-delay: 1s;"></div>
+    <div class="bubble" style="left: 25%; width: 40px; height: 40px; animation-duration: 12s; animation-delay: 3s;"></div>
+    <div class="bubble" style="left: 45%; width: 15px; height: 15px; animation-duration: 6s; animation-delay: 0s;"></div>
+    <div class="bubble" style="left: 65%; width: 30px; height: 30px; animation-duration: 10s; animation-delay: 5s;"></div>
+    <div class="bubble" style="left: 85%; width: 25px; height: 25px; animation-duration: 9s; animation-delay: 2s;"></div>
+
+    <div class="wave-container wave-1">
+        <svg viewBox="0 0 1200 120" preserveAspectRatio="none">
+            <path d="M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,52.47V0Z" opacity=".25"></path>
+            <path d="M0,0V15.81C13,36.92,27.64,56.86,47.69,72.05,99.41,111.27,165,111,224.58,91.58c31.15-10.15,60.09-26.07,89.67-39.8,40.92-19,84.73-46,130.83-49.67,36.26-2.85,70.9,9.42,98.6,31.56,31.77,25.39,62.32,62,103.63,73,40.44,10.79,81.35-6.69,119.13-24.28s75.16-39,116.92-43.05c59.73-5.85,113.28,22.88,168.9,38.84,30.2,8.66,59,6.17,87.09-7.5V0Z" opacity=".5"></path>
+            <path d="M0,0V5.63C149.93,59,314.09,71.32,475.83,42.57c43-7.64,84.23-20.12,127.61-26.46,59-8.63,112.48,12.24,165.56,35.4C827.93,77.22,886,95.24,951.2,90c86.53-7,172.46-45.71,248.8-84.81V0Z"></path>
+        </svg>
+    </div>
+    <div class="wave-container wave-2">
+        <svg viewBox="0 0 1200 120" preserveAspectRatio="none">
+            <path d="M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,52.47V0Z" opacity=".25"></path>
+            <path d="M0,0V15.81C13,36.92,27.64,56.86,47.69,72.05,99.41,111.27,165,111,224.58,91.58c31.15-10.15,60.09-26.07,89.67-39.8,40.92-19,84.73-46,130.83-49.67,36.26-2.85,70.9,9.42,98.6,31.56,31.77,25.39,62.32,62,103.63,73,40.44,10.79,81.35-6.69,119.13-24.28s75.16-39,116.92-43.05c59.73-5.85,113.28,22.88,168.9,38.84,30.2,8.66,59,6.17,87.09-7.5V0Z" opacity=".5"></path>
+            <path d="M0,0V5.63C149.93,59,314.09,71.32,475.83,42.57c43-7.64,84.23-20.12,127.61-26.46,59-8.63,112.48,12.24,165.56,35.4C827.93,77.22,886,95.24,951.2,90c86.53-7,172.46-45.71,248.8-84.81V0Z"></path>
+        </svg>
+    </div>
+
+    <header>
+        <div class="container flex justify-between items-center">
+            <div class="flex items-center title-group">
+                <!-- Fish Hook Icon -->
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 0 8px rgba(34,211,238,0.5));">
+                    <path d="M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 6 6-.06 3.46-2.44 6-6 6-3.56 0-7.56-2.54-8.5-6Z"/>
+                    <path d="M18 12v.01"/>
+                    <path d="M6.5 12c-2.58 0-4.63-1.63-5.5-4C1 11.23 1 12.77 1 16c.87-2.37 2.92-4 5.5-4"/>
+                </svg>
+                <h1>Rift Fishing Save Editor</h1>
+            </div>
+            <div class="badge">#Joycie</div>
+        </div>
+    </header>
+
+    <main class="container" style="flex-grow: 1; position: relative; z-index: 1; margin-bottom: 2rem;">
+        
+        <div id="dropzone" class="glass-panel dropzone flex-col items-center">
+            <input type="file" id="fileInput" style="display: none;" accept=".sav">
+            <div class="dropzone-icon">
+                <!-- Fish Icon -->
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 13.5V11a8 8 0 0 1 16 0v2.5"/>
+                    <path d="M12 21v-4"/>
+                    <path d="M15.5 21 12 17l-3.5 4"/>
+                    <path d="M20 13.5a4 4 0 1 1-8 0"/>
+                    <path d="M12 13.5a4 4 0 1 1-8 0"/>
+                </svg>
+            </div>
+            <h3>Drop your save file here</h3>
+            <p>or click to browse. Look for <span style="color:#93c5fd; font-family: monospace;">Player_0.sav</span></p>
+            <div class="warning-box">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right: 8px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                Always backup your original save file before editing!
+            </div>
+        </div>
+
+        <div id="editorWorkspace" class="workspace">
+            <div class="flex justify-between items-center workspace-header" style="flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.25rem; display: flex; align-items: center;">
+                        <span id="loadedFilename" class="loaded-filename">Player_0.sav</span> 
+                        <span class="success-badge">Loaded Successfully</span>
+                    </h2>
+                    <p style="font-size: 0.875rem; color: rgba(165, 243, 252, 0.7);">Modify your stats below. Safe limits applied.</p>
+                </div>
+                <button id="downloadBtn" class="btn">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right: 8px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Save & Download
+                </button>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid gap-4 stats-grid" id="statsGrid">
+                <!-- Dynamically populated by JS -->
+            </div>
+        </div>
+
+        <!-- Message Box -->
+        <div id="messageBox" class="message-box"></div>
+
+    </main>
+
+    <script>
+        // DOM Elements
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const editorWorkspace = document.getElementById('editorWorkspace');
+        const statsGrid = document.getElementById('statsGrid');
+        const loadedFilename = document.getElementById('loadedFilename');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const messageBox = document.getElementById('messageBox');
+
+        // Application State
+        let rawBuffer = null;
+        let originalFileName = "";
+        let parsedProperties = {};
+
+        // Definitions of known variables to search for in the Save Game based on user dump.
+        // We use the exact ID tag so we don't accidentally edit strings or unrelated data.
+        const PROPERTY_DEFINITIONS = [
+            { id: "currency", name: "Currency_14_3360BE0C408F836E357D76A46439B290", label: "Currency (Coins)", icon: "🪙", min: 0, max: 9999999 },
+            { id: "currentLevel", name: "CurrentLevel_9_F7195C714FE5453674FDD9A6E471F2BA", label: "Player Level", icon: "⭐", min: 1, max: 100 },
+            { id: "currentXP", name: "CurrentXP_10_0F743E884CF1633B98B3ACA3CC675315", label: "Player XP", icon: "✨", min: 0, max: 9999999 },
+            { id: "fishingLevel", name: "FishingLevel_6_787A13ED47F1FAB1431F8D8483EDB45E", label: "Fishing Level", icon: "🎣", min: 1, max: 100 },
+            { id: "fishingXP", name: "FishingXP_4_F768F35748AC17367BDC209B00E3C524", label: "Fishing XP", icon: "🐟", min: 0, max: 9999999 },
+        ];
+
+        
+        function stringToBytes(str) {
+            let bytes = new Uint8Array(str.length);
+            for (let i = 0; i < str.length; i++) {
+                bytes[i] = str.charCodeAt(i);
+            }
+            return bytes;
+        }
+
+        function findPatternIndex(bufferArray, patternArray) {
+            for (let i = 0; i < bufferArray.length - patternArray.length; i++) {
+                let match = true;
+                for (let j = 0; j < patternArray.length; j++) {
+                    if (bufferArray[i + j] !== patternArray[j]) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) return i;
+            }
+            return -1;
+        }
+
+        // Core Parser: Finds the FProperty in the UE serialization format
+        function parseUEProperty(buffer, def) {
+            const bufferArray = new Uint8Array(buffer);
+            const dataView = new DataView(buffer);
+            const pattern = stringToBytes(def.name);
+            
+            const nameIndex = findPatternIndex(bufferArray, pattern);
+            if (nameIndex === -1) return null; // Property hasn't been saved yet
+
+            // 1: Jump over Name String + Null Terminator
+            let ptr = nameIndex + pattern.length + 1;
+
+            // 2: Read Type String Length
+            const typeLen = dataView.getInt32(ptr, true); 
+            ptr += 4;
+
+            // 3: Read Type String
+            let typeStr = "";
+            for (let i = 0; i < typeLen - 1; i++) { 
+                typeStr += String.fromCharCode(dataView.getUint8(ptr + i));
+            }
+            ptr += typeLen; 
+
+            // 4: Skip Size Value (8 bytes)
+            ptr += 8;
+
+            // 5: Skip Property array index pad (1 byte)
+            ptr += 1;
+
+            // 6: Read Value based on Type
+            let valueOffset = ptr;
+            let currentValue = 0;
+
+            if (typeStr === "IntProperty") {
+                currentValue = dataView.getInt32(valueOffset, true);
+            } else if (typeStr === "FloatProperty") {
+                currentValue = dataView.getFloat32(valueOffset, true);
+            } else if (typeStr === "DoubleProperty") {
+                currentValue = dataView.getFloat64(valueOffset, true);
+            } else {
+                console.warn(`Unsupported type ${typeStr} for ${def.name}`);
+                return null;
+            }
+
+            return {
+                definition: def,
+                type: typeStr,
+                offset: valueOffset,
+                value: currentValue
+            };
+        }
+
+
+        function showMessage(msg, type="info") {
+            messageBox.textContent = msg;
+            messageBox.className = "message-box " + (type === "error" ? "message-error" : "message-success");
+        }
+
+        function buildUI() {
+            statsGrid.innerHTML = '';
+            let foundCount = 0;
+            
+            for (const key in parsedProperties) {
+                const prop = parsedProperties[key];
+                foundCount++;
+
+                const card = document.createElement('div');
+                card.className = "glass-panel stat-card";
+                
+                const step = (prop.type === "DoubleProperty" || prop.type === "FloatProperty") ? "0.1" : "1";
+
+                card.innerHTML = `
+                    <label class="stat-label">
+                        ${prop.definition.icon} ${prop.definition.label}
+                    </label>
+                    <input type="number" 
+                        id="input_${key}" 
+                        value="${prop.value}" 
+                        step="${step}"
+                        min="${prop.definition.min}"
+                        max="${prop.definition.max}"
+                        class="stat-input">
+                    <div class="stat-meta">
+                        Offset: 0x${prop.offset.toString(16).toUpperCase().padStart(8, '0')} | ${prop.type.replace('Property', '')}
+                    </div>
+                `;
+                statsGrid.appendChild(card);
+            }
+
+            if (foundCount === 0) {
+                statsGrid.innerHTML = `
+                    <div class="empty-state">
+                        <p style="color: #facc15; margin-bottom: 8px;">No recognizable properties found in this file.</p>
+                        <p style="font-size: 0.875rem; color: rgba(165, 243, 252, 0.7);">Ensure this is a Rift Fishing Player_0.sav file.</p>
+                    </div>
+                `;
+                downloadBtn.disabled = true;
+            } else {
+                downloadBtn.disabled = false;
+            }
+        }
+
+
+        function processFile(file) {
+            originalFileName = file.name;
+            loadedFilename.textContent = originalFileName;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                rawBuffer = e.target.result;
+                parsedProperties = {};
+
+                PROPERTY_DEFINITIONS.forEach(def => {
+                    const parsed = parseUEProperty(rawBuffer, def);
+                    if (parsed) {
+                        parsedProperties[def.id] = parsed;
+                    }
+                });
+
+                dropzone.style.display = 'none';
+                editorWorkspace.classList.add('active');
+                messageBox.style.display = 'none';
+                
+                buildUI();
+            };
+            
+            reader.onerror = function() {
+                showMessage("Error reading the file. Please try again.", "error");
+            }
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        function saveAndDownload() {
+            try {
+                const dataView = new DataView(rawBuffer);
+
+                for (const key in parsedProperties) {
+                    const prop = parsedProperties[key];
+                    const inputEl = document.getElementById(`input_${key}`);
+                    if (!inputEl) continue;
+
+                    let newVal = Number(inputEl.value);
+                    
+                    if (newVal < prop.definition.min) newVal = prop.definition.min;
+                    if (newVal > prop.definition.max) newVal = prop.definition.max;
+
+                    if (prop.type === "IntProperty") {
+                        dataView.setInt32(prop.offset, parseInt(newVal), true);
+                    } else if (prop.type === "FloatProperty") {
+                        dataView.setFloat32(prop.offset, parseFloat(newVal), true);
+                    } else if (prop.type === "DoubleProperty") {
+                        dataView.setFloat64(prop.offset, parseFloat(newVal), true);
+                    }
+                }
+
+                const blob = new Blob([rawBuffer], { type: "application/octet-stream" });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = originalFileName; 
+                document.body.appendChild(a);
+                a.click();
+                
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                showMessage("Save file successfully patched and downloaded!", "success");
+
+            } catch (err) {
+                console.error(err);
+                showMessage("An error occurred while patching the binary data.", "error");
+            }
+        }
+
+        dropzone.addEventListener('click', () => fileInput.click());
+        
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('drag-active');
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('drag-active');
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('drag-active');
+            
+            if (e.dataTransfer.files.length > 0) {
+                processFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                processFile(e.target.files[0]);
+            }
+        });
+
+        downloadBtn.addEventListener('click', saveAndDownload);
+
+    </script>
+</body>
+</html>
